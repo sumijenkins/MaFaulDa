@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Machine Monitoring Dashboard</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 24px;
+            background: #f3f5f9;
+            color: #202938;
+            font-family: Arial, sans-serif;
+        }
+
+        .container {
+            max-width: 1050px;
+            margin: auto;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin-bottom: 28px;
+        }
+
+        h1 {
+            margin: 0 0 8px;
+            font-size: 27px;
+        }
+
+        .subtitle {
+            margin: 0;
+            color: #697586;
+        }
+
+        .status {
+            padding: 10px 14px;
+            border-radius: 20px;
+            background: #e5e7eb;
+            font-size: 13px;
+            font-weight: bold;
+        }
+
+        .status.online {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .status.offline {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .section-title {
+            font-size: 17px;
+            margin: 24px 0 14px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 16px;
+        }
+
+        .card {
+            background: white;
+            border: 1px solid #e5e9f0;
+            border-radius: 14px;
+            padding: 20px;
+            box-shadow: 0 3px 12px rgba(20, 35, 60, 0.04);
+        }
+
+        .card-label {
+            color: #697586;
+            font-size: 14px;
+            margin-bottom: 14px;
+        }
+
+        .value {
+            font-size: 29px;
+            font-weight: bold;
+            overflow-wrap: anywhere;
+        }
+
+        .unit {
+            color: #697586;
+            font-size: 14px;
+            font-weight: normal;
+        }
+
+        .prediction-card {
+            grid-column: 1 / -1;
+        }
+
+        .prediction {
+            font-size: 25px;
+            font-weight: bold;
+            margin: 8px 0;
+        }
+
+        .note {
+            color: #697586;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        footer {
+            color: #697586;
+            font-size: 12px;
+            margin-top: 24px;
+        }
+
+        @media (max-width: 650px) {
+            body {
+                padding: 16px;
+            }
+
+            .grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .prediction-card {
+                grid-column: 1 / -1;
+            }
+
+            h1 {
+                font-size: 22px;
+            }
+
+            .value {
+                font-size: 24px;
+            }
+        }
+
+        @media (max-width: 380px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            .prediction-card {
+                grid-column: auto;
+            }
+        }
+    </style>
+</head>
+
+<body>
+<div class="container">
+
+    <header>
+        <div>
+            <h1>Machine Monitoring</h1>
+            <p class="subtitle">
+                ESP8266 Edge AI Fault Detection System
+            </p>
+        </div>
+
+        <div id="connection" class="status">
+            Connecting...
+        </div>
+    </header>
+
+    <h2 class="section-title">Vibration Measurements</h2>
+
+    <div class="grid">
+        <div class="card">
+            <div class="card-label">Acceleration X</div>
+            <div class="value">
+                <span id="x">--</span>
+                <span class="unit">m/s²</span>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-label">Acceleration Y</div>
+            <div class="value">
+                <span id="y">--</span>
+                <span class="unit">m/s²</span>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-label">Acceleration Z</div>
+            <div class="value">
+                <span id="z">--</span>
+                <span class="unit">m/s²</span>
+            </div>
+        </div>
+    </div>
+
+    <h2 class="section-title">Environmental Measurements</h2>
+
+    <div class="grid">
+        <div class="card">
+            <div class="card-label">Temperature</div>
+            <div class="value">
+                <span id="temperature">--</span>
+                <span class="unit">°C</span>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-label">Atmospheric Pressure</div>
+            <div class="value">
+                <span id="pressure">--</span>
+                <span class="unit">hPa</span>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-label">BMP180 Status</div>
+            <div class="value" id="bmpStatus">--</div>
+        </div>
+    </div>
+
+    <h2 class="section-title">Fault Detection</h2>
+
+    <div class="grid">
+        <div class="card prediction-card">
+            <div class="card-label">Latest Model Prediction</div>
+            <div id="prediction" class="prediction">
+                Waiting for data...
+            </div>
+            <p class="note">
+                Prediction is generated by the model running on the ESP8266.
+            </p>
+        </div>
+    </div>
+
+    <footer>
+        Data refresh interval: 1 second |
+        Last update: <span id="lastUpdate">--</span>
+    </footer>
+
+</div>
+
+<script>
+    function setText(id, value) {
+        document.getElementById(id).textContent = value;
+    }
+
+    async function updateDashboard() {
+        const connection = document.getElementById("connection");
+
+        try {
+            const response = await fetch("/api/data", {
+                cache: "no-store"
+            });
+
+            if (!response.ok) {
+                throw new Error("Server returned an error");
+            }
+
+            const data = await response.json();
+
+            if (!data.connected) {
+                throw new Error(data.error || "ESP8266 unavailable");
+            }
+
+            setText("x", Number(data.x).toFixed(3));
+            setText("y", Number(data.y).toFixed(3));
+            setText("z", Number(data.z).toFixed(3));
+
+            setText(
+                "temperature",
+                data.bmpReady ? Number(data.temperature).toFixed(2) : "--"
+            );
+
+            setText(
+                "pressure",
+                data.bmpReady ? Number(data.pressure).toFixed(2) : "--"
+            );
+
+            setText("bmpStatus", data.bmpReady ? "Ready" : "Unavailable");
+            setText("prediction", data.fault || "Waiting for data...");
+
+            connection.textContent = "ESP8266 Connected";
+            connection.className = "status online";
+
+            setText("lastUpdate", new Date().toLocaleTimeString());
+
+        } catch (error) {
+            connection.textContent = "Connection Lost";
+            connection.className = "status offline";
+        }
+    }
+
+    updateDashboard();
+    setInterval(updateDashboard, 1000);
+</script>
+
+</body>
+</html>
