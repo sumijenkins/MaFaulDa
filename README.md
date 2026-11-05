@@ -1,51 +1,162 @@
-# ESP8266 Edge AI - Makine Ariza Tespiti
+# ESP8266-Based Machine Fault Detection | Edge AI
 
-ADXL345 ivmeolcerinden alinan X, Y ve Z ekseni verilerini kucuk karar agaci modelleriyle siniflandirarak makine arizalarini ESP8266 uzerinde tespit eden bir Edge AI projesi. ESP8266 olcumleri ve tahminleri HTTP JSON API'si uzerinden sunar; Python/Flask dashboard'u bu verileri goruntuler.
+An Edge AI-based machine monitoring prototype that uses an ADXL345 accelerometer to collect X, Y, and Z-axis vibration data and classify machine conditions using lightweight Decision Tree models running on the ESP8266.
 
-## Tespit edilen siniflar
+The ESP8266 provides sensor measurements and fault predictions through an HTTP JSON API, while a Python Flask dashboard retrieves and visualizes this data.
+
+## Detected Fault Classes
 
 - Normal
-- Dengesizlik (imbalance)
-- Yatay hizasizlik (horizontal misalignment)
-- Dikey hizasizlik (vertical misalignment)
+- Imbalance
+- Horizontal Misalignment
+- Vertical Misalignment
 
-## Donanim ve baglantilar
+## Hardware Components and Connections
 
-- ESP8266 gelistirme karti
-- ADXL345 ivmeolcer (I2C: SDA -> D2, SCL -> D1)
-- Istege bagli BMP180 sicaklik/basinc sensoru (ayni I2C hatti)
+- **ESP8266** development board
+- **ADXL345** accelerometer
+  - SDA → D2
+  - SCL → D1
+- **BMP180** temperature and pressure sensor (optional, connected to the same I2C bus)
 
-Firmware, `ESP8266_FaultDetection/Esp8266_edgeai/Esp8266_edgeai.ino` dosyasindadir. Arduino IDE'de ESP8266 kart destegini ve Adafruit ADXL345, Adafruit Unified Sensor ve Adafruit BMP085 kutuphanelerini yukleyin; ardindan bu sketch'i karta yukleyin. BMP180 bagli degilse ivmeolcer tabanli tahmin calismaya devam eder.
+Both sensors communicate with the ESP8266 over I2C. The system can continue making accelerometer-based predictions even when the BMP180 sensor is not connected.
 
-Kart `Machine-Monitor` adli Wi-Fi erisim noktasi olusturur ve olcumleri `http://192.168.4.1/data` adresinde sunar. Kaynak koddaki varsayilan Wi-Fi parolasini gercek kullanimdan once degistirin; parola firmware seri cikisinda da yazdirilir.
+## Firmware Setup
 
-## Python dashboard
+The ESP8266 firmware is located at:
 
-Python 3 ile dashboard bagimliliklarini kurun:
+```text
+ESP8266_FaultDetection/Esp8266_edgeai/Esp8266_edgeai.ino
+```
+
+To upload the firmware:
+
+1. Install Arduino IDE.
+2. Install ESP8266 board support.
+3. Install the following libraries:
+   - Adafruit ADXL345
+   - Adafruit Unified Sensor
+   - Adafruit BMP085
+4. Open the firmware sketch in Arduino IDE.
+5. Select the appropriate ESP8266 board and port.
+6. Upload the sketch to the board.
+
+The ESP8266 creates a Wi-Fi access point named `Machine-Monitor` and serves sensor data at:
+
+```text
+http://192.168.4.1/data
+```
+
+**Important:** Change the default Wi-Fi password in the source code before using the device. The password is also printed to the firmware's serial output, so avoid sharing sensitive serial logs.
+
+## Python Dashboard
+
+The project includes a Flask-based dashboard for visualizing sensor measurements and fault classification results.
+
+### Requirements
+
+- Python 3
+- Flask and other dependencies listed in `requirements.txt`
+
+### Installation and Execution
+
+Navigate to the dashboard directory:
+
+```bash
+cd ESP8266_FaultDetection/python-dashboard
+```
+
+Create and activate a virtual environment on Windows PowerShell:
 
 ```powershell
-cd ESP8266_FaultDetection/python-dashboard
 python -m venv .venv
 .venv\Scripts\Activate.ps1
+```
+
+Install dependencies:
+
+```bash
 pip install -r requirements.txt
+```
+
+Start the dashboard:
+
+```bash
 python app.py
 ```
 
-Bilgisayari ESP8266'nin `Machine-Monitor` agina bagladiktan sonra `http://127.0.0.1:5000` adresini acin. Dashboard, ESP8266 API'sini `http://192.168.4.1/data` adresinden okur. Farkli bir ag veya adres kullaniyorsaniz `app.py` icindeki `ESP_URL` degerini guncelleyin.
+Connect your computer to the ESP8266 Wi-Fi network named `Machine-Monitor`, then open:
 
-## Veri ve model egitimi
+```text
+http://127.0.0.1:5000
+```
 
-- `01_MaFaulDa_Dataset/`: MaFaulDa veri seti icin ozellik cikarma, model egitimi, karsilastirma ve disari aktarma betikleri. Ham MaFaulDa veri seti depoya dahil degildir. `02_extract_features.py` icindeki `DATASET_DIR` degerini kendi veri setinizin konumuna gore ayarlayin; betik `features.csv` olusturur.
-- `02_Synthetic_Data/`: Sentetik ADXL345 verisi uretme ve karar agaci egitme betikleri; uretilen veri ve model dosyalari da klasordedir.
-- `03_Recorded_Sensor_Data/`: Sensor verisini seri porttan kaydetme, kayitlari karsilastirma ve kayitli verilerden model egitme betikleri. Seri portu kullanmadan once `record_data.py` icindeki `PORT` degerini ayarlayin.
-- `ESP8266_FaultDetection/`: ESP8266 firmware'i, model baslik dosyasi ve Flask dashboard.
-- `FaultDetection/` ve `SyntheticFaultDetection/`: Diger firmware/model varyantlari.
+The dashboard retrieves sensor data from the ESP8266 API at `http://192.168.4.1/data`.
 
-Model egitimi icin ilgili betigin klasorune gecin ve o betigin Python bagimliliklarini kurun. MaFaulDa veri akisi ham veri seti gerektirir; sentetik veri akisi ise `02_Synthetic_Data/generate_dataset.py` ve ardindan `08_train_synthetic_model.py` ile calistirilabilir.
+If the ESP8266 uses a different IP address, update the `ESP_URL` value in `app.py`.
 
-## API ornegi
+## Dataset and Model Training
 
-`GET /data` yaniti ivmeolcer eksenlerini, sicaklik/basinc durumunu ve model tahminini JSON olarak icerir:
+The repository contains scripts for feature extraction, dataset preparation, model training, and model export.
+
+### 1. MaFaulDa Dataset
+
+The `01_MaFaulDa_Dataset/` directory contains scripts for:
+
+- Feature extraction from the MaFaulDa dataset
+- Model training and comparison
+- Model export
+
+The raw MaFaulDa dataset is not included in this repository.
+
+Before running the feature extraction script, update the `DATASET_DIR` variable in `02_extract_features.py` to point to your local dataset directory. The script generates a `features.csv` file.
+
+### 2. Synthetic Data
+
+The `02_Synthetic_Data/` directory contains scripts for generating synthetic ADXL345 sensor data and training Decision Tree models.
+
+The synthetic dataset and related model files are also included in this directory.
+
+The synthetic data workflow can be executed using:
+
+```bash
+python generate_dataset.py
+python 08_train_synthetic_model.py
+```
+
+Run these scripts from the appropriate directory.
+
+### 3. Recorded Sensor Data
+
+The `03_Recorded_Sensor_Data/` directory contains scripts for:
+
+- Recording sensor measurements through a serial port
+- Comparing recorded datasets
+- Training models using recorded sensor data
+
+Before running `record_data.py`, configure the correct serial port in the `PORT` variable.
+
+### 4. Firmware and Model Integration
+
+The `ESP8266_FaultDetection/` directory contains:
+
+- ESP8266 firmware
+- Model header files
+- Flask-based monitoring dashboard
+
+The repository also includes additional firmware and model variants in the `FaultDetection/` and `SyntheticFaultDetection/` directories.
+
+Install the Python dependencies required by the relevant scripts before running the training workflows.
+
+## HTTP JSON API
+
+The ESP8266 exposes sensor measurements and classification results through the following endpoint:
+
+```http
+GET /data
+```
+
+Example JSON response:
 
 ```json
 {
@@ -60,6 +171,29 @@ Model egitimi icin ilgili betigin klasorune gecin ve o betigin Python bagimlilik
 }
 ```
 
-## Guvenlik ve kullanim
+The response includes:
 
-Varsayilan erisim noktasi parolasini paylasmadan veya cihazi kullanmadan once degistirin. Bu proje egitim ve prototipleme amaclidir; guvenlik-kritik makine durdurma veya koruma sistemlerinin yerine kullanilmamalidir.
+| Field | Description |
+|---|---|
+| `x`, `y`, `z` | Accelerometer measurements |
+| `temperature` | Temperature reading from BMP180 |
+| `pressure` | Pressure reading from BMP180 |
+| `bmpReady` | Indicates whether BMP180 is available |
+| `prediction` | Numeric classification result |
+| `fault` | Predicted machine condition |
+
+## Security and Limitations
+
+- Change the default Wi-Fi access point password before using the device.
+- Avoid exposing sensitive credentials in source code or shared logs.
+- The project is intended for educational and prototyping purposes.
+- It is not designed to replace industrial safety systems or safety-critical machine protection mechanisms.
+
+## Technologies Used
+
+- **Embedded:** ESP8266, ADXL345, BMP180, I2C
+- **Firmware:** Arduino IDE, C++
+- **Backend / Dashboard:** Python, Flask
+- **Machine Learning:** Decision Tree Classification
+- **Communication:** HTTP, JSON, Wi-Fi
+
